@@ -1,0 +1,45 @@
+name: Deploy Abyssal to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download and verify the official Abyssal 1.30.0 web release
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location --retry 3 --output abyssal-web.zip https://github.com/TheWWWorm/abyssal/releases/download/v1.30.0/abyssal-engine-1.30.0-web.zip
+          echo '4ecaad3c9543b658b6a41008b42c069146e92479a513efc301711d07114fd7ae  abyssal-web.zip' | sha256sum --check
+          unzip -q abyssal-web.zip -d site
+          test -s site/index.html
+          test -z "$(find site -iname '*.jar' -print -quit)"
+          touch site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
